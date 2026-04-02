@@ -394,6 +394,65 @@ async function fetchAllOpportunities(token, locId, pipelineId, dateFrom, dateTo)
   return allOpps;
 }
 
+// Debug: check pagination meta
+app.get('/api/debug/pagination/:locationId/:pipelineId', async (req, res) => {
+  const { locationId, pipelineId } = req.params;
+  const token = await getAccessToken(locationId);
+  if (!token) return res.status(401).json({ error: 'No token' });
+
+  const params = new URLSearchParams({
+    location_id: locationId,
+    pipeline_id: pipelineId,
+    limit: '5'
+  });
+
+  const r = await fetch(`${GHL_API}/opportunities/search?${params}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Version': '2021-07-28',
+      'Accept': 'application/json'
+    }
+  });
+  const data = await r.json();
+  const opps = data.opportunities || [];
+
+  // Page 2 with startAfterId
+  const lastId = opps.length ? opps[opps.length - 1].id : null;
+  let page2 = null;
+  if (lastId) {
+    const params2 = new URLSearchParams({
+      location_id: locationId,
+      pipeline_id: pipelineId,
+      limit: '5',
+      startAfterId: lastId
+    });
+    const r2 = await fetch(`${GHL_API}/opportunities/search?${params2}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Version': '2021-07-28',
+        'Accept': 'application/json'
+      }
+    });
+    const d2 = await r2.json();
+    page2 = {
+      count: (d2.opportunities || []).length,
+      meta: d2.meta,
+      firstId: d2.opportunities?.[0]?.id,
+      lastId: d2.opportunities?.[d2.opportunities.length - 1]?.id
+    };
+  }
+
+  res.json({
+    page1: {
+      count: opps.length,
+      meta: data.meta,
+      firstId: opps[0]?.id,
+      lastId
+    },
+    page2
+  });
+});
+
 // Aggregate: all locations dashboard data
 app.get('/api/dashboard', async (req, res) => {
   const { dateFrom, dateTo } = req.query;
