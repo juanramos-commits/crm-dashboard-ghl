@@ -19,26 +19,33 @@ const REDIRECT_URI = `${BASE_URL}/oauth/callback`;
 const GHL_API = 'https://services.leadconnectorhq.com';
 const GHL_AUTH = 'https://marketplace.gohighlevel.com/oauth/chooselocation';
 
-// Token storage (file-based for simplicity)
-const TOKENS_FILE = path.join(__dirname, 'data', 'tokens.json');
+// Token storage — persistent volume or env var fallback
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+const TOKENS_FILE = path.join(DATA_DIR, 'tokens.json');
 
 function ensureDataDir() {
-  const dir = path.join(__dirname, 'data');
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
 function loadTokens() {
+  // Try file first
   try {
     if (fs.existsSync(TOKENS_FILE)) {
       return JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf8'));
     }
   } catch (e) { /* ignore */ }
+  // Fallback: env var GHL_TOKENS (JSON string)
+  if (process.env.GHL_TOKENS) {
+    try { return JSON.parse(process.env.GHL_TOKENS); } catch(e) {}
+  }
   return {};
 }
 
 function saveTokens(tokens) {
   ensureDataDir();
   fs.writeFileSync(TOKENS_FILE, JSON.stringify(tokens, null, 2));
+  // Log tokens so they can be saved as env var if needed
+  console.log('TOKENS_SAVED:', JSON.stringify(tokens));
 }
 
 // Get valid access token for a location (refresh if needed)
