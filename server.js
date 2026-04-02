@@ -401,8 +401,51 @@ app.get('/api/dashboard/:locationId', async (req, res) => {
   }
 });
 
+// Helper: fetch all opportunities for a pipeline with pagination
+async function fetchAllOpportunities(token, locId, pipelineId, dateFrom, dateTo) {
+  let allOpps = [];
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const params = new URLSearchParams({
+      location_id: locId,
+      pipeline_id: pipelineId,
+      limit: '100',
+      page: String(page)
+    });
+    if (dateFrom) params.set('date', dateFrom);
+    if (dateTo) params.set('endDate', dateTo);
+
+    const r = await fetch(`${GHL_API}/opportunities/search?${params}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Version': '2021-07-28',
+        'Accept': 'application/json'
+      }
+    });
+    const data = await r.json();
+    const opps = data.opportunities || [];
+    allOpps = allOpps.concat(opps);
+
+    const total = data.meta?.total || 0;
+    console.log(`Pipeline ${pipelineId} page ${page}: got ${opps.length}, total so far ${allOpps.length}/${total}`);
+
+    if (opps.length < 100 || allOpps.length >= total) {
+      hasMore = false;
+    } else {
+      page++;
+      // Safety: max 500 pages (50k opps)
+      if (page > 500) hasMore = false;
+    }
+  }
+
+  return allOpps;
+}
+
 // Aggregate: all locations dashboard data
 app.get('/api/dashboard', async (req, res) => {
+  const { dateFrom, dateTo } = req.query;
   const tokens = loadTokens();
   const locationIds = Object.keys(tokens);
 
@@ -439,36 +482,7 @@ app.get('/api/dashboard', async (req, res) => {
 
       const pipelineData = [];
       for (const pip of pipelines) {
-        let allOpps = [];
-        let cursor = '';
-        let hasMore = true;
-
-        while (hasMore) {
-          const params = new URLSearchParams({
-            location_id: locId,
-            pipeline_id: pip.id,
-            limit: '100'
-          });
-          if (cursor) params.set('startAfter', cursor);
-
-          const r = await fetch(`${GHL_API}/opportunities/search?${params}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Version': '2021-07-28',
-              'Accept': 'application/json'
-            }
-          });
-          const data = await r.json();
-          const opps = data.opportunities || [];
-          allOpps = allOpps.concat(opps);
-
-          if (opps.length < 100 || allOpps.length >= 20000) {
-            hasMore = false;
-          } else {
-            cursor = data.meta?.startAfter || '';
-            if (!cursor) hasMore = false;
-          }
-        }
+        const allOpps = await fetchAllOpportunities(token, locId, pip.id, dateFrom, dateTo);
 
         pipelineData.push({
           pipeline: {
