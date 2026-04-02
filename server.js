@@ -100,7 +100,6 @@ app.get('/oauth/start', (req, res) => {
   const scopes = [
     'locations.readonly',
     'opportunities.readonly',
-    'opportunities/pipelines.readonly',
     'contacts.readonly'
   ].join(' ');
 
