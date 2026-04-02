@@ -7,9 +7,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // GHL OAuth Config
-const GHL_CLIENT_ID = process.env.GHL_CLIENT_ID || '69ce3c50a783315420c260fa-mnharl1s';
-const GHL_CLIENT_SECRET = process.env.GHL_CLIENT_SECRET || 'b3b63090-3331-4e2d-b379-119f67494ebf';
+const GHL_CLIENT_ID = process.env.GHL_CLIENT_ID;
+const GHL_CLIENT_SECRET = process.env.GHL_CLIENT_SECRET;
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+
+if (!GHL_CLIENT_ID || !GHL_CLIENT_SECRET) {
+  console.error('ERROR: GHL_CLIENT_ID and GHL_CLIENT_SECRET env vars are required');
+  process.exit(1);
+}
 const REDIRECT_URI = `${BASE_URL}/oauth/callback`;
 const GHL_API = 'https://services.leadconnectorhq.com';
 const GHL_AUTH = 'https://marketplace.gohighlevel.com/oauth/chooselocation';
