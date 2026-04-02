@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Ventas Número 1</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0e0e0e;
+  --s1: #161616;
+  --s2: #1c1c1c;
+  --s3: #222;
+  --bd: #2a2a2a;
+  --gold: #c9a84c;
+  --gold2: #e8c96a;
+  --golda: rgba(201,168,76,0.12);
+  --w: #f0f0f0;
+  --g1: #888;
+  --g2: #555;
+  --green: #4caf7d;
+  --red: #e05252;
+  --amber: #e0a052;
+  --blue: #5299e0;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:var(--bg); color:var(--w); font-size:13px; min-height:100vh; }
+::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:var(--bd); border-radius:2px; }
+
+/* HEADER */
+#hdr { display:flex; align-items:center; justify-content:space-between; padding:16px 28px; background:var(--s1); border-bottom:1px solid var(--bd); }
+.hdr-left { display:flex; align-items:center; gap:16px; }
+.hdr-title { font-size:20px; font-weight:700; letter-spacing:-.3px; }
+.hdr-right { display:flex; align-items:center; gap:10px; }
+
+/* LAYOUT */
+#layout { display:flex; min-height:calc(100vh - 57px); }
+#proj-sb { width:220px; flex-shrink:0; background:var(--s1); border-right:1px solid var(--bd); overflow-y:auto; padding:16px 0; }
+#main { flex:1; min-width:0; padding:24px 28px; overflow-x:hidden; }
+
+/* SIDEBAR */
+.sb-title { font-size:10px; color:var(--g2); text-transform:uppercase; letter-spacing:1.5px; padding:0 16px; margin-bottom:12px; font-weight:500; }
+.sb-item { display:flex; align-items:center; gap:10px; padding:10px 16px; cursor:pointer; transition:background .15s; border-left:3px solid transparent; }
+.sb-item:hover { background:var(--s2); }
+.sb-item.active { background:var(--s2); border-left-color:var(--gold); }
+.sb-item .sb-dot { width:8px; height:8px; border-radius:50%; background:var(--green); flex-shrink:0; }
+.sb-item .sb-name { font-size:12px; font-weight:500; }
+.sb-item-all { color:var(--gold); font-weight:600; }
+.sb-connect { margin:16px; }
+.sb-connect a { display:block; background:var(--gold); color:#000; text-align:center; padding:10px; border-radius:8px; font-size:12px; font-weight:700; text-decoration:none; transition:background .2s; }
+.sb-connect a:hover { background:var(--gold2); }
+
+/* BUTTONS */
+.btn { border:none; cursor:pointer; font-family:inherit; transition:all .2s; }
+.btn-gold { background:var(--gold); color:#000; padding:8px 20px; border-radius:6px; font-size:12px; font-weight:700; }
+.btn-gold:hover { background:var(--gold2); }
+.btn-ghost { background:none; color:var(--g1); border:1px solid var(--bd); padding:6px 14px; border-radius:6px; font-size:11px; }
+.btn-ghost:hover { color:var(--w); border-color:var(--g1); }
+
+/* KPI */
+.kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+.kpi-card { background:var(--s1); border:1px solid var(--bd); border-radius:10px; padding:18px 20px; transition:border-color .2s; }
+.kpi-card:hover { border-color:var(--gold); }
+.kpi-icon-row { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+.kpi-icon { font-size:14px; }
+.kpi-name { font-size:11px; color:var(--g1); font-weight:500; }
+.kpi-val { font-size:32px; font-weight:700; letter-spacing:-1px; line-height:1; margin-bottom:6px; }
+.kpi-sub { font-size:11px; color:var(--g2); }
+
+/* CARDS */
+.card { background:var(--s1); border:1px solid var(--bd); border-radius:10px; padding:20px; margin-bottom:20px; }
+.card-hdr { display:flex; align-items:center; gap:8px; margin-bottom:16px; }
+.card-icon { font-size:13px; color:var(--gold); }
+.card-title { font-size:13px; font-weight:600; }
+.chart-wrap { position:relative; height:200px; }
+
+/* PIPELINE */
+.pipeline-section { margin-bottom:24px; }
+.pipeline-name { font-size:14px; font-weight:700; margin-bottom:12px; }
+.pipeline-bar { display:flex; height:22px; border-radius:6px; overflow:hidden; margin-bottom:10px; }
+.pipeline-segment { height:100%; transition:opacity .2s; cursor:pointer; position:relative; }
+.pipeline-segment:hover { opacity:.85; }
+.pipeline-legend { display:flex; flex-wrap:wrap; gap:6px 14px; margin-bottom:8px; }
+.pl-item { display:flex; align-items:center; gap:5px; font-size:10px; color:var(--g1); }
+.pl-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+
+/* TABLE */
+.tbl { width:100%; border-collapse:collapse; }
+.tbl th { font-size:9px; color:var(--g2); text-transform:uppercase; letter-spacing:1.5px; font-weight:500; text-align:left; padding:0 0 10px 0; border-bottom:1px solid var(--bd); }
+.tbl td { padding:9px 0; font-size:12px; color:var(--g1); border-bottom:1px solid #1a1a1a; }
+.tbl td:first-child { color:var(--w); font-weight:500; }
+.tbl th:not(:first-child), .tbl td:not(:first-child) { text-align:right; }
+
+/* ROW GRIDS */
+.row2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px; }
+.row3 { display:grid; grid-template-columns:2fr 1fr; gap:14px; margin-bottom:20px; }
+
+/* CONNECT SCREEN */
+.connect-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; text-align:center; }
+.connect-screen h2 { font-size:24px; margin-bottom:12px; }
+.connect-screen p { color:var(--g1); margin-bottom:24px; font-size:14px; }
+.connect-screen a { display:inline-block; background:var(--gold); color:#000; padding:14px 32px; border-radius:8px; font-size:14px; font-weight:700; text-decoration:none; }
+.connect-screen a:hover { background:var(--gold2); }
+
+/* LOADING */
+.loading { display:flex; align-items:center; justify-content:center; min-height:40vh; }
+.spinner { width:32px; height:32px; border:3px solid var(--bd); border-top-color:var(--gold); border-radius:50%; animation:spin .6s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* DATE FILTER */
+.date-row { display:flex; align-items:center; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+.date-row label { font-size:11px; color:var(--g1); }
+.date-input { background:var(--s2); border:1px solid var(--bd); color:var(--w); padding:6px 10px; border-radius:6px; font-size:12px; font-family:inherit; outline:none; }
+.date-input:focus { border-color:var(--gold); }
+
+/* RESPONSIVE */
+@media(max-width:1100px) { .kpi-grid { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:768px) {
+  #proj-sb { display:none; }
+  .kpi-grid { grid-template-columns:1fr; }
+  .row2, .row3 { grid-template-columns:1fr; }
+  #main { padding:16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="hdr">
+  <div class="hdr-left">
+    <span class="hdr-title">Dashboard — Ventas Número 1</span>
+  </div>
+  <div class="hdr-right">
+    <button class="btn btn-gold" onclick="loadDashboard()" id="btn-refresh">⟳ Actualizar</button>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div id="layout">
+  <div id="proj-sb">
+    <div class="sb-title">Proyectos</div>
+    <div id="sb-locations"></div>
+    <div class="sb-connect">
+      <a href="/oauth/start">+ Conectar sub-account</a>
+    </div>
+  </div>
+  <div id="main">
+    <div class="loading" id="loading"><div class="spinner"></div></div>
+    <div id="content" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+var state = {
+  locations: [],
+  dashboardData: null,
+  selectedLocation: null, // null = all
+  charts: {}
+};
+
+var STAGE_COLORS = [
+  '#c9a84c','#5299e0','#4caf7d','#e0a052','#e05252','#9b59b6',
+  '#1abc9c','#e67e22','#3498db','#e74c3c','#2ecc71','#f39c12',
+  '#8e44ad','#16a085','#d35400','#2980b9','#c0392b','#27ae60'
+];
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', function() {
+  checkStatus();
+});
+
+function checkStatus() {
+  fetch('/api/status')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.connected) {
+        loadDashboard();
+      } else {
+        showConnectScreen();
+      }
+    })
+    .catch(function() { showConnectScreen(); });
+}
+
+function showConnectScreen() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = 'block';
+  document.getElementById('content').innerHTML =
+    '<div class="connect-screen">' +
+      '<h2>Conecta tu cuenta de GHL</h2>' +
+      '<p>Conecta tus sub-accounts de GoHighLevel para ver las pipelines en el dashboard.</p>' +
+      '<a href="/oauth/start">Conectar GoHighLevel</a>' +
+    '</div>';
+  document.getElementById('sb-locations').innerHTML = '';
+}
+
+function showLoading() {
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('content').style.display = 'none';
+}
+
+function hideLoading() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = 'block';
+}
+
+// ── Load Dashboard ──
+function loadDashboard() {
+  showLoading();
+  fetch('/api/dashboard')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      state.dashboardData = data;
+      state.locations = data.locations || [];
+      renderSidebar();
+      renderDashboard();
+      hideLoading();
+    })
+    .catch(function(e) {
+      hideLoading();
+      document.getElementById('content').innerHTML =
+        '<div style="color:var(--red);padding:40px;text-align:center">' +
+          '<p>Error cargando datos: ' + e.message + '</p>' +
+          '<button class="btn btn-gold" onclick="loadDashboard()" style="margin-top:16px">Reintentar</button>' +
+        '</div>';
+    });
+}
+
+// ── Sidebar ──
+function renderSidebar() {
+  var html = '<div class="sb-item active sb-item-all" onclick="selectLocation(null, this)">' +
+    '<span class="sb-dot" style="background:var(--gold)"></span>' +
+    '<span class="sb-name">Todos los proyectos</span></div>';
+
+  state.locations.forEach(function(loc) {
+    html += '<div class="sb-item" onclick="selectLocation(\'' + loc.location.id + '\', this)">' +
+      '<span class="sb-dot"></span>' +
+      '<span class="sb-name">' + loc.location.name + '</span></div>';
+  });
+
+  document.getElementById('sb-locations').innerHTML = html;
+}
+
+function selectLocation(locId, el) {
+  state.selectedLocation = locId;
+  document.querySelectorAll('.sb-item').forEach(function(e) { e.classList.remove('active'); });
+  if (el) el.classList.add('active');
+  renderDashboard();
+}
+
+// ── Render Dashboard ──
+function renderDashboard() {
+  destroyCharts();
+  var locations = state.locations;
+  if (state.selectedLocation) {
+    locations = locations.filter(function(l) { return l.location.id === state.selectedLocation; });
+  }
+
+  // Aggregate all opportunities
+  var allOpps = [];
+  var allPipelines = [];
+  locations.forEach(function(loc) {
+    (loc.pipelines || []).forEach(function(p) {
+      allPipelines.push({ pipeline: p.pipeline, locationName: loc.location.name });
+      (p.opportunities || []).forEach(function(opp) {
+        opp.__location = loc.location.name;
+        opp.__pipelineName = p.pipeline.name;
+        allOpps.push(opp);
+      });
+    });
+  });
+
+  // ── KPIs ──
+  var totalLeads = allOpps.length;
+  var totalValue = 0;
+  var wonOpps = [];
+  var lostOpps = [];
+  var openOpps = [];
+
+  allOpps.forEach(function(o) {
+    var val = parseFloat(o.monetaryValue) || 0;
+    totalValue += val;
+    if (o.status === 'won') wonOpps.push(o);
+    else if (o.status === 'lost' || o.status === 'abandoned') lostOpps.push(o);
+    else openOpps.push(o);
+  });
+
+  var wonValue = 0;
+  wonOpps.forEach(function(o) { wonValue += parseFloat(o.monetaryValue) || 0; });
+
+  var winRate = totalLeads > 0 ? Math.round(wonOpps.length / totalLeads * 100) : 0;
+
+  var html = '';
+
+  // Date filter
+  html += '<div class="date-row">' +
+    '<label>Desde:</label><input type="date" class="date-input" id="date-from" onchange="filterByDate()">' +
+    '<label>Hasta:</label><input type="date" class="date-input" id="date-to" onchange="filterByDate()">' +
+    '<button class="btn btn-ghost" onclick="clearDates()">Limpiar</button>' +
+    '</div>';
+
+  // KPI Grid
+  html += '<div class="kpi-grid">';
+  html += kpiCard('👥', 'Total Leads', totalLeads, 'Oportunidades en pipeline');
+  html += kpiCard('💰', 'Valor Total', formatMoney(totalValue), 'Valor acumulado');
+  html += kpiCard('✅', 'Ventas Cerradas', wonOpps.length, formatMoney(wonValue) + ' facturado');
+  html += kpiCard('📊', 'Win Rate', winRate + '%', wonOpps.length + ' won / ' + lostOpps.length + ' lost');
+  html += '</div>';
+
+  // Pipeline bars per pipeline
+  allPipelines.forEach(function(p, idx) {
+    html += renderPipelineSection(p.pipeline, p.locationName, allOpps, idx);
+  });
+
+  // Charts row
+  html += '<div class="row2">';
+  html += '<div class="card"><div class="card-hdr"><span class="card-icon">📈</span><span class="card-title">Oportunidades por día</span></div><div class="chart-wrap"><canvas id="ch-opps"></canvas></div></div>';
+  html += '<div class="card"><div class="card-hdr"><span class="card-icon">💵</span><span class="card-title">Valor por día</span></div><div class="chart-wrap"><canvas id="ch-value"></canvas></div></div>';
+  html += '</div>';
+
+  // Opportunities table per location
+  html += '<div class="card"><div class="card-hdr"><span class="card-icon">📋</span><span class="card-title">Oportunidades recientes</span></div>';
+  html += '<table class="tbl"><thead><tr><th>Nombre</th><th>Pipeline</th><th>Etapa</th><th>Valor</th><th>Estado</th><th>Fecha</th></tr></thead><tbody>';
+
+  var sorted = allOpps.slice().sort(function(a, b) {
+    return new Date(b.dateAdded || 0) - new Date(a.dateAdded || 0);
+  }).slice(0, 50);
+
+  sorted.forEach(function(o) {
+    var statusColor = o.status === 'won' ? 'var(--green)' : o.status === 'lost' ? 'var(--red)' : 'var(--g1)';
+    var date = o.dateAdded ? new Date(o.dateAdded).toLocaleDateString('es-ES') : '—';
+    html += '<tr>' +
+      '<td>' + (o.contact?.name || o.name || '—') + '</td>' +
+      '<td>' + (o.__pipelineName || '—') + '</td>' +
+      '<td>' + (o.pipelineStageId ? getStageName(o, allPipelines) : '—') + '</td>' +
+      '<td>' + formatMoney(parseFloat(o.monetaryValue) || 0) + '</td>' +
+      '<td style="color:' + statusColor + '">' + (o.status || 'open') + '</td>' +
+      '<td>' + date + '</td></tr>';
+  });
+
+  html += '</tbody></table></div>';
+
+  document.getElementById('content').innerHTML = html;
+
+  // Render charts
+  renderCharts(allOpps);
+}
+
+// ── Helpers ──
+
+function kpiCard(icon, name, value, sub) {
+  return '<div class="kpi-card">' +
+    '<div class="kpi-icon-row"><span class="kpi-icon">' + icon + '</span><span class="kpi-name">' + name + '</span></div>' +
+    '<div class="kpi-val">' + value + '</div>' +
+    '<div class="kpi-sub">' + sub + '</div></div>';
+}
+
+function formatMoney(v) {
+  return v.toLocaleString('es-ES', { style:'currency', currency:'EUR', minimumFractionDigits:0, maximumFractionDigits:0 });
+}
+
+function getStageName(opp, allPipelines) {
+  for (var i = 0; i < allPipelines.length; i++) {
+    var stages = allPipelines[i].pipeline.stages || [];
+    for (var j = 0; j < stages.length; j++) {
+      if (stages[j].id === opp.pipelineStageId) return stages[j].name;
+    }
+  }
+  return opp.pipelineStageId || '—';
+}
+
+function renderPipelineSection(pipeline, locationName, allOpps, idx) {
+  var stages = pipeline.stages || [];
+  var pipelineOpps = allOpps.filter(function(o) { return o.pipelineId === pipeline.id; });
+  var total = pipelineOpps.length || 1;
+
+  // Count per stage
+  var stageCounts = {};
+  stages.forEach(function(s) { stageCounts[s.id] = 0; });
+  pipelineOpps.forEach(function(o) {
+    if (stageCounts[o.pipelineStageId] !== undefined) {
+      stageCounts[o.pipelineStageId]++;
+    }
+  });
+
+  var html = '<div class="pipeline-section"><div class="pipeline-name">' +
+    '<span style="color:var(--gold)">' + locationName + '</span> → ' + pipeline.name +
+    ' <span style="color:var(--g2);font-size:12px;font-weight:400">(' + pipelineOpps.length + ' oportunidades)</span></div>';
+
+  // Bar
+  html += '<div class="pipeline-bar">';
+  stages.forEach(function(s, si) {
+    var count = stageCounts[s.id] || 0;
+    var w = Math.max((count / total) * 100, 0.5);
+    var color = STAGE_COLORS[si % STAGE_COLORS.length];
+    html += '<div class="pipeline-segment" style="width:' + w + '%;background:' + color + '" title="' + s.name + ': ' + count + '"></div>';
+  });
+  html += '</div>';
+
+  // Legend
+  html += '<div class="pipeline-legend">';
+  stages.forEach(function(s, si) {
+    var count = stageCounts[s.id] || 0;
+    var color = STAGE_COLORS[si % STAGE_COLORS.length];
+    html += '<div class="pl-item"><span class="pl-dot" style="background:' + color + '"></span>' + s.name + ' (' + count + ')</div>';
+  });
+  html += '</div></div>';
+
+  return html;
+}
+
+// ── Charts ──
+
+function destroyCharts() {
+  Object.keys(state.charts).forEach(function(k) {
+    try { state.charts[k].destroy(); } catch(e) {}
+  });
+  state.charts = {};
+}
+
+function renderCharts(opps) {
+  // Group by date
+  var byDate = {};
+  var valByDate = {};
+  opps.forEach(function(o) {
+    if (!o.dateAdded) return;
+    var d = o.dateAdded.substring(0, 10);
+    byDate[d] = (byDate[d] || 0) + 1;
+    valByDate[d] = (valByDate[d] || 0) + (parseFloat(o.monetaryValue) || 0);
+  });
+
+  var dates = Object.keys(byDate).sort();
+  var last30 = dates.slice(-30);
+
+  var labels = last30.map(function(d) { return d.substring(5); });
+  var counts = last30.map(function(d) { return byDate[d]; });
+  var values = last30.map(function(d) { return valByDate[d]; });
+
+  // Opps chart
+  var ctx1 = document.getElementById('ch-opps');
+  if (ctx1) {
+    state.charts['opps'] = new Chart(ctx1, {
+      type: 'line',
+      data: { labels: labels, datasets: [{ data: counts, borderColor: '#c9a84c', backgroundColor: 'rgba(201,168,76,0.1)', fill: true, tension: 0.3, pointRadius: 2 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#555', font: { size: 10 } }, grid: { color: '#1a1a1a' } }, y: { ticks: { color: '#555', font: { size: 10 } }, grid: { color: '#1a1a1a' } } } }
+    });
+  }
+
+  // Value chart
+  var ctx2 = document.getElementById('ch-value');
+  if (ctx2) {
+    state.charts['value'] = new Chart(ctx2, {
+      type: 'bar',
+      data: { labels: labels, datasets: [{ data: values, backgroundColor: 'rgba(201,168,76,0.6)', borderRadius: 4 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#555', font: { size: 10 } }, grid: { color: '#1a1a1a' } }, y: { ticks: { color: '#555', font: { size: 10 }, callback: function(v) { return v >= 1000 ? (v/1000)+'k' : v; } }, grid: { color: '#1a1a1a' } } } }
+    });
+  }
+}
+
+// ── Date Filter ──
+function filterByDate() {
+  // Re-render with filtered data
+  // For now re-render - could optimize
+  renderDashboard();
+}
+
+function clearDates() {
+  document.getElementById('date-from').value = '';
+  document.getElementById('date-to').value = '';
+  renderDashboard();
+}
+
+</script>
+</body>
+</html>
