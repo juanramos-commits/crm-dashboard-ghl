@@ -343,20 +343,21 @@ app.get('/api/dashboard/:locationId', async (req, res) => {
 async function fetchAllOpportunities(token, locId, pipelineId, dateFrom, dateTo) {
   const seen = new Set();
   let allOpps = [];
-  let page = 1;
-  let hasMore = true;
+  let pageNum = 0;
 
-  while (hasMore) {
-    const params = new URLSearchParams({
-      location_id: locId,
-      pipeline_id: pipelineId,
-      limit: '100',
-      page: String(page)
-    });
-    if (dateFrom) params.set('date', dateFrom);
-    if (dateTo) params.set('endDate', dateTo);
+  // Build initial URL
+  const initialParams = new URLSearchParams({
+    location_id: locId,
+    pipeline_id: pipelineId,
+    limit: '100'
+  });
+  if (dateFrom) initialParams.set('date', dateFrom);
+  if (dateTo) initialParams.set('endDate', dateTo);
 
-    const r = await fetch(`${GHL_API}/opportunities/search?${params}`, {
+  let nextUrl = `${GHL_API}/opportunities/search?${initialParams}`;
+
+  while (nextUrl) {
+    const r = await fetch(nextUrl, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Version': '2021-07-28',
@@ -366,6 +367,7 @@ async function fetchAllOpportunities(token, locId, pipelineId, dateFrom, dateTo)
     const data = await r.json();
     const opps = data.opportunities || [];
     const total = data.meta?.total || 0;
+    pageNum++;
 
     // Deduplicate
     let newCount = 0;
@@ -377,14 +379,15 @@ async function fetchAllOpportunities(token, locId, pipelineId, dateFrom, dateTo)
       }
     }
 
-    console.log(`Pipeline ${pipelineId} page ${page}: got ${opps.length}, new ${newCount}, total unique ${allOpps.length}/${total}`);
+    console.log(`Pipeline ${pipelineId} page ${pageNum}: got ${opps.length}, new ${newCount}, total unique ${allOpps.length}/${total}`);
 
-    if (opps.length < 100 || newCount === 0 || !data.meta?.nextPage) {
-      hasMore = false;
+    // Use nextPageUrl from meta — this is the exact URL GHL generates
+    if (newCount === 0 || opps.length < 100 || !data.meta?.nextPageUrl) {
+      nextUrl = null;
     } else {
-      page = data.meta.nextPage;
+      nextUrl = data.meta.nextPageUrl;
       // Safety: max 200 pages
-      if (page > 200) hasMore = false;
+      if (pageNum >= 200) nextUrl = null;
     }
   }
 
