@@ -782,6 +782,13 @@ function daysRange(days) {
 // ── GHL API Integration ──
 var ghlLocations = [];
 var ghlConnected = false;
+var ghlUsers = {}; // cache userId → name
+
+function ghlUserName(userId) {
+  if (!userId) return '';
+  if (ghlUsers[userId]) return ghlUsers[userId];
+  return userId.substring(0, 8) + '...';
+}
 
 function ghlInit() {
   fetch('/api/status').then(function(r){return r.json();}).then(function(data) {
@@ -815,7 +822,18 @@ function ghlLoadDashboard() {
     buildProjectSelect();
     sbRender();
 
-    ghlConvertAndRender();
+    // Load users for each location
+    var userFetches = ghlLocations.map(function(loc) {
+      return fetch('/api/locations/' + loc.location.id + '/users')
+        .then(function(r){return r.json();})
+        .then(function(d) {
+          var users = d.users || {};
+          Object.keys(users).forEach(function(uid) { ghlUsers[uid] = users[uid]; });
+        }).catch(function(){});
+    });
+    Promise.all(userFetches).then(function() {
+      ghlConvertAndRender();
+    });
   }).catch(function(e) {
     document.getElementById('msg').textContent = 'Error GHL: ' + e.message;
   });
@@ -858,13 +876,13 @@ function ghlConvertAndRender() {
           'Etapa actual': stageName,
           'Estado': opp.status || 'open',
           'Valor': opp.monetaryValue || 0,
-          'Fecha de registro': opp.dateAdded || opp.createdAt || '',
-          'Fecha de llamada': opp.lastStageChangeAt || opp.dateAdded || '',
-          'Fecha llamada': opp.lastStageChangeAt || opp.dateAdded || '',
-          'Fecha de venta': opp.status === 'won' ? (opp.lastStatusChangeAt || opp.dateAdded || '') : '',
-          'Fecha venta': opp.status === 'won' ? (opp.lastStatusChangeAt || opp.dateAdded || '') : '',
-          'Responsable': opp.assignedTo || '',
-          'Closer': opp.assignedTo || '',
+          'Fecha de registro': opp.createdAt || opp.dateAdded || '',
+          'Fecha de llamada': opp.lastStageChangeAt || opp.createdAt || '',
+          'Fecha llamada': opp.lastStageChangeAt || opp.createdAt || '',
+          'Fecha de venta': opp.status === 'won' ? (opp.lastStatusChangeAt || opp.createdAt || '') : '',
+          'Fecha venta': opp.status === 'won' ? (opp.lastStatusChangeAt || opp.createdAt || '') : '',
+          'Responsable': ghlUserName(opp.assignedTo),
+          'Closer': ghlUserName(opp.assignedTo),
           'Pipeline': p.pipeline.name,
           '__proyecto': locName
         };

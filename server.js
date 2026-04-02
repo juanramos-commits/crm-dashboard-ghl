@@ -166,6 +166,36 @@ app.get('/api/status', (req, res) => {
   res.json({ connected: locations.length > 0, locations });
 });
 
+// ─── Users cache ───
+const usersCache = {};
+
+app.get('/api/locations/:locationId/users', async (req, res) => {
+  const { locationId } = req.params;
+  const token = await getAccessToken(locationId);
+  if (!token) return res.status(401).json({ error: 'Location not connected' });
+
+  if (usersCache[locationId]) return res.json({ users: usersCache[locationId] });
+
+  try {
+    const r = await fetch(`${GHL_API}/users/search?companyId=${loadTokens()[locationId]?.companyId || ''}&locationId=${locationId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Version': '2021-07-28',
+        'Accept': 'application/json'
+      }
+    });
+    const data = await r.json();
+    const users = {};
+    (data.users || []).forEach(u => {
+      users[u.id] = u.name || u.firstName + ' ' + (u.lastName || '');
+    });
+    usersCache[locationId] = users;
+    res.json({ users });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── GHL API Proxy ───
 
 // List all connected locations with their details
@@ -347,7 +377,7 @@ app.get('/api/dashboard/:locationId', async (req, res) => {
         const opps = data.opportunities || [];
         allOpps = allOpps.concat(opps);
 
-        if (opps.length < 100 || allOpps.length >= 5000) {
+        if (opps.length < 100 || allOpps.length >= 20000) {
           hasMore = false;
         } else {
           cursor = data.meta?.startAfter || '';
@@ -432,7 +462,7 @@ app.get('/api/dashboard', async (req, res) => {
           const opps = data.opportunities || [];
           allOpps = allOpps.concat(opps);
 
-          if (opps.length < 100 || allOpps.length >= 5000) {
+          if (opps.length < 100 || allOpps.length >= 20000) {
             hasMore = false;
           } else {
             cursor = data.meta?.startAfter || '';
