@@ -261,43 +261,11 @@ app.get('/api/locations/:locationId/pipelines', async (req, res) => {
 // Get opportunities for a pipeline
 app.get('/api/locations/:locationId/pipelines/:pipelineId/opportunities', async (req, res) => {
   const { locationId, pipelineId } = req.params;
-  const { startAfter, limit } = req.query;
   const token = await getAccessToken(locationId);
   if (!token) return res.status(401).json({ error: 'Location not connected' });
 
   try {
-    let allOpportunities = [];
-    let cursor = startAfter || '';
-    let hasMore = true;
-    const pageLimit = 100;
-
-    // Paginate through all opportunities
-    while (hasMore) {
-      const params = new URLSearchParams({
-        location_id: locationId,
-        pipeline_id: pipelineId,
-        limit: String(pageLimit)
-      });
-      if (cursor) params.set('startAfter', cursor);
-
-      const r = await fetch(`${GHL_API}/opportunities/search?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Version': '2021-07-28',
-          'Accept': 'application/json'
-        }
-      });
-      const data = await r.json();
-      const opps = data.opportunities || [];
-      allOpportunities = allOpportunities.concat(opps);
-
-      if (opps.length < pageLimit || allOpportunities.length >= 5000) {
-        hasMore = false;
-      } else {
-        cursor = data.meta?.startAfter || '';
-        if (!cursor) hasMore = false;
-      }
-    }
+    const allOpportunities = await fetchAllOpportunities(token, locationId, pipelineId);
 
     res.json({ opportunities: allOpportunities, total: allOpportunities.length });
   } catch (e) {
@@ -354,37 +322,7 @@ app.get('/api/dashboard/:locationId', async (req, res) => {
     // Get opportunities for each pipeline
     const pipelineData = [];
     for (const pip of pipelines) {
-      let allOpps = [];
-      let cursor = '';
-      let hasMore = true;
-
-      while (hasMore) {
-        const params = new URLSearchParams({
-          location_id: locationId,
-          pipeline_id: pip.id,
-          limit: '100'
-        });
-        if (cursor) params.set('startAfter', cursor);
-
-        const r = await fetch(`${GHL_API}/opportunities/search?${params}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Version': '2021-07-28',
-            'Accept': 'application/json'
-          }
-        });
-        const data = await r.json();
-        const opps = data.opportunities || [];
-        allOpps = allOpps.concat(opps);
-
-        if (opps.length < 100 || allOpps.length >= 20000) {
-          hasMore = false;
-        } else {
-          cursor = data.meta?.startAfter || '';
-          if (!cursor) hasMore = false;
-        }
-      }
-
+      const allOpps = await fetchAllOpportunities(token, locationId, pip.id);
       pipelineData.push({
         pipeline: {
           id: pip.id,
@@ -403,17 +341,19 @@ app.get('/api/dashboard/:locationId', async (req, res) => {
 
 // Helper: fetch all opportunities for a pipeline with pagination
 async function fetchAllOpportunities(token, locId, pipelineId, dateFrom, dateTo) {
+  const seen = new Set();
   let allOpps = [];
-  let page = 1;
+  let lastId = '';
   let hasMore = true;
+  let pageNum = 0;
 
   while (hasMore) {
     const params = new URLSearchParams({
       location_id: locId,
       pipeline_id: pipelineId,
-      limit: '100',
-      page: String(page)
+      limit: '100'
     });
+    if (lastId) params.set('startAfterId', lastId);
     if (dateFrom) params.set('date', dateFrom);
     if (dateTo) params.set('endDate', dateTo);
 
@@ -426,20 +366,31 @@ async function fetchAllOpportunities(token, locId, pipelineId, dateFrom, dateTo)
     });
     const data = await r.json();
     const opps = data.opportunities || [];
-    allOpps = allOpps.concat(opps);
+    pageNum++;
 
-    const total = data.meta?.total || 0;
-    console.log(`Pipeline ${pipelineId} page ${page}: got ${opps.length}, total so far ${allOpps.length}/${total}`);
+    // Deduplicate
+    let newCount = 0;
+    for (const opp of opps) {
+      if (!seen.has(opp.id)) {
+        seen.add(opp.id);
+        allOpps.push(opp);
+        newCount++;
+      }
+    }
 
-    if (opps.length < 100 || allOpps.length >= total) {
+    console.log(`Pipeline ${pipelineId} page ${pageNum}: got ${opps.length}, new ${newCount}, total unique ${allOpps.length}`);
+
+    if (opps.length < 100 || newCount === 0) {
       hasMore = false;
     } else {
-      page++;
-      // Safety: max 500 pages (50k opps)
-      if (page > 500) hasMore = false;
+      // Use the last opportunity's ID as cursor
+      lastId = opps[opps.length - 1].id;
+      // Safety: max 200 pages
+      if (pageNum >= 200) hasMore = false;
     }
   }
 
+  console.log(`Pipeline ${pipelineId} DONE: ${allOpps.length} unique opportunities`);
   return allOpps;
 }
 
