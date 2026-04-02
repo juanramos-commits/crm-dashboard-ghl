@@ -343,17 +343,16 @@ app.get('/api/dashboard/:locationId', async (req, res) => {
 async function fetchAllOpportunities(token, locId, pipelineId, dateFrom, dateTo) {
   const seen = new Set();
   let allOpps = [];
-  let lastId = '';
+  let page = 1;
   let hasMore = true;
-  let pageNum = 0;
 
   while (hasMore) {
     const params = new URLSearchParams({
       location_id: locId,
       pipeline_id: pipelineId,
-      limit: '100'
+      limit: '100',
+      page: String(page)
     });
-    if (lastId) params.set('startAfterId', lastId);
     if (dateFrom) params.set('date', dateFrom);
     if (dateTo) params.set('endDate', dateTo);
 
@@ -366,7 +365,7 @@ async function fetchAllOpportunities(token, locId, pipelineId, dateFrom, dateTo)
     });
     const data = await r.json();
     const opps = data.opportunities || [];
-    pageNum++;
+    const total = data.meta?.total || 0;
 
     // Deduplicate
     let newCount = 0;
@@ -378,15 +377,14 @@ async function fetchAllOpportunities(token, locId, pipelineId, dateFrom, dateTo)
       }
     }
 
-    console.log(`Pipeline ${pipelineId} page ${pageNum}: got ${opps.length}, new ${newCount}, total unique ${allOpps.length}`);
+    console.log(`Pipeline ${pipelineId} page ${page}: got ${opps.length}, new ${newCount}, total unique ${allOpps.length}/${total}`);
 
-    if (opps.length < 100 || newCount === 0) {
+    if (opps.length < 100 || newCount === 0 || !data.meta?.nextPage) {
       hasMore = false;
     } else {
-      // Use the last opportunity's ID as cursor
-      lastId = opps[opps.length - 1].id;
+      page = data.meta.nextPage;
       // Safety: max 200 pages
-      if (pageNum >= 200) hasMore = false;
+      if (page > 200) hasMore = false;
     }
   }
 
