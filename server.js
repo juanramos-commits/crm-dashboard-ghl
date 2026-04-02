@@ -414,15 +414,14 @@ app.get('/api/debug/pagination/:locationId/:pipelineId', async (req, res) => {
   const data = await r.json();
   const opps = data.opportunities || [];
 
-  // Page 2 with startAfterId
-  const lastId = opps.length ? opps[opps.length - 1].id : null;
+  // Page 2 with page param
   let page2 = null;
-  if (lastId) {
+  {
     const params2 = new URLSearchParams({
       location_id: locationId,
       pipeline_id: pipelineId,
       limit: '5',
-      startAfterId: lastId
+      page: '2'
     });
     const r2 = await fetch(`${GHL_API}/opportunities/search?${params2}`, {
       headers: {
@@ -433,10 +432,39 @@ app.get('/api/debug/pagination/:locationId/:pipelineId', async (req, res) => {
     });
     const d2 = await r2.json();
     page2 = {
+      method: 'page=2',
       count: (d2.opportunities || []).length,
       meta: d2.meta,
       firstId: d2.opportunities?.[0]?.id,
-      lastId: d2.opportunities?.[d2.opportunities.length - 1]?.id
+      lastId: d2.opportunities?.[d2.opportunities?.length - 1]?.id
+    };
+  }
+
+  // Page 2 with startAfter (timestamp) + startAfterId
+  let page3 = null;
+  const meta1 = data.meta || {};
+  if (meta1.startAfter && meta1.startAfterId) {
+    const params3 = new URLSearchParams({
+      location_id: locationId,
+      pipeline_id: pipelineId,
+      limit: '5',
+      startAfter: String(meta1.startAfter),
+      startAfterId: meta1.startAfterId
+    });
+    const r3 = await fetch(`${GHL_API}/opportunities/search?${params3}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Version': '2021-07-28',
+        'Accept': 'application/json'
+      }
+    });
+    const d3 = await r3.json();
+    page3 = {
+      method: 'startAfter+startAfterId from meta',
+      count: (d3.opportunities || []).length,
+      meta: d3.meta,
+      firstId: d3.opportunities?.[0]?.id,
+      lastId: d3.opportunities?.[d3.opportunities?.length - 1]?.id
     };
   }
 
@@ -445,9 +473,10 @@ app.get('/api/debug/pagination/:locationId/:pipelineId', async (req, res) => {
       count: opps.length,
       meta: data.meta,
       firstId: opps[0]?.id,
-      lastId
+      lastId: opps[opps.length - 1]?.id
     },
-    page2
+    page2_with_page_param: page2,
+    page2_with_startAfter: page3
   });
 });
 
